@@ -148,18 +148,6 @@ func runEncrypt() {
 	backupPath := configJson.S("backupPath").Data().(string)
 	secret := configJson.S("enckey").Data().(string)
 
-	//Remove old encryption if any
-	allFiles, _ := ioutil.ReadDir(backupPath)
-	for _, file := range allFiles {
-		isEncryption := len(strings.Split(file.Name(), "nc"))
-
-
-		if 2 == isEncryption {
-			spew.Printf("Remove:: %s\n",file.Name())
-			os.Remove(backupPath + file.Name())
-		}
-	}
-
 	//Execute encryption
 	files, _ := ioutil.ReadDir(backupPath)
 	for _, file := range files {
