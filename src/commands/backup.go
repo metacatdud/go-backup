@@ -4,11 +4,10 @@ import (
 	"gopkg.in/urfave/cli.v2"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/Jeffail/gabs"
-	"os/user"
 	"io/ioutil"
 	"os"
-	"strings"
 	"os/exec"
+	"os/user"
 )
 
 var (
@@ -122,7 +121,7 @@ func runTar() string {
 	for _, folder := range foldersList {
 
 		folderName := folder.Data().(string)
-		archiveName := strings.ToLower(folderName) + ".tar.gz"
+		archiveName := folderName + ".tar.gz"
 
 		tarCmd := "tar"
 		tarArgs := []string{
