@@ -50,18 +50,18 @@ func InitCommand() *cli.Command {
 func createConfig (secret string, remote string) string {
 
 	usr, _ := user.Current()
-	configDir := usr.HomeDir + "/qbyco_bkp/"
-	configFile := configDir + "config.json"
+	configFilePath := usr.HomeDir + "/" + "qbkp_config.json"
+	backupPath := "/tmp/qbkp/"
 
 	if _, err := os.Stat(configDir); os.IsNotExist(err) {
 		os.Mkdir(configDir, 0777);
 	}
 
-	if _, err := os.Stat(configDir + "bkp"); os.IsNotExist(err) {
-		os.Mkdir(configDir + "bkp", 0777);
+	if _, err := os.Stat(backupPath); os.IsNotExist(err) {
+		os.Mkdir(backupPath, 0777);
 	}
 
-	if _, err := os.Stat(configFile); err == nil {
+	if _, err := os.Stat(configFilePath); err == nil {
 		return "file_exist"
 	}
 
@@ -69,10 +69,10 @@ func createConfig (secret string, remote string) string {
 	configJson.Set(secret, "enckey")
 	configJson.Set(remote, "remote")
 	configJson.Set(usr.HomeDir + "/", "rootPath")
-	configJson.Set(configDir + "bkp/", "backupPath")
+	configJson.Set(backupPath, "backupPath")
 
 
-	err := ioutil.WriteFile(configFile, []byte(configJson.String()), 0644)
+	err := ioutil.WriteFile(configFilePath, []byte(configJson.String()), 0644)
 	if nil != err {
 		panic(err)
 	}

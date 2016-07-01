@@ -8,18 +8,16 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"time"
 )
 
 var (
 	usr, _ = user.Current()
-	configDir = usr.HomeDir + "/qbyco_bkp/"
-	configFilePath = configDir + "config.json"
+	configDir = usr.HomeDir + "/"
+	configFilePath = configDir + "qbkp_config.json"
 	configJson *gabs.Container
 )
 
-func init ()  {
-
-}
 
 //Command constructor
 func BackupCommand() *cli.Command {
@@ -77,6 +75,8 @@ func BackupCommand() *cli.Command {
 
 func runBackup () string {
 
+	defer timeTrack(time.Now(), "[PROCESS][BACKUP]:: Total time")
+
 	if _, err := os.Stat(configFilePath); os.IsNotExist(err) {
 		return "no_config"
 	}
@@ -98,7 +98,7 @@ func runBackup () string {
 		return "archive_error"
 	}
 
-	runEncrypt()
+	//runEncrypt()
 
 	rsync := runRsync()
 	if "rsync_error" == rsync {
@@ -109,10 +109,12 @@ func runBackup () string {
 }
 
 func runTar() string {
+	defer timeTrack(time.Now(), "[PROCESS][ZIP]:: Time")
 
 	backupPath := configJson.S("backupPath").Data().(string)
 	rootPath := configJson.S("rootPath").Data().(string)
 	foldersList, _ := configJson.S("monitor").Children()
+	secret := configJson.S("enckey").Data().(string)
 
 	if nil == foldersList {
 		return "no_monitor"
@@ -120,55 +122,47 @@ func runTar() string {
 
 	for _, folder := range foldersList {
 
+		backupRoot := false
 		folderName := folder.Data().(string)
-		archiveName := folderName + ".tar.gz"
+		archiveName := folderName + ".zip"
 
-		tarCmd := "tar"
-		tarArgs := []string{
-			"-zcvf",
-			backupPath + archiveName,
-			rootPath + folderName,
+		if "*" == folderName {
+			backupRoot = true
+			archiveName = usr.Username + ".zip"
 		}
 
-		if err := exec.Command(tarCmd, tarArgs...).Run(); err != nil {
-			return "archive_error"
+		zipCmd := "zip"
+		zipArgs := []string{
+			"-9",
+			"-P",
+			secret,
+			"-s",
+			"1024m",
+			"-r",
+			spew.Sprintf("%s", backupPath + archiveName),
 		}
 
+		if true == backupRoot {
+			zipArgs = append(zipArgs, rootPath)
 
+		} else {
+			zipArgs = append(zipArgs, spew.Sprintf("%s/", rootPath + folderName))
 
-		spew.Printf("Archive:: %s Complete!\n", archiveName)
+		}
+
+		runCmd := exec.Command(zipCmd, zipArgs...)
+		runCmd.Stdout = os.Stdout
+		runCmd.Stderr = os.Stderr
+		runCmd.Run()
 	}
 
 	return "tar_complete"
 
 }
 
-func runEncrypt() {
-	backupPath := configJson.S("backupPath").Data().(string)
-	secret := configJson.S("enckey").Data().(string)
-
-	//Execute encryption
-	files, _ := ioutil.ReadDir(backupPath)
-	for _, file := range files {
-
-		mcryptCmd := "mcrypt"
-		mcryptArgs := []string{
-			backupPath + file.Name(),
-			"--key",
-			secret,
-			"--unlink",
-			"--force",
-		}
-
-		if err := exec.Command(mcryptCmd, mcryptArgs...).Run(); err != nil {
-			spew.Print("Unable to encrypt", file.Name())
-		}
-
-		spew.Printf("Encrypt:: %s Success!\n", file.Name())
-	}
-}
-
 func runRsync () string {
+	defer timeTrack(time.Now(), "[PROCESS][RSYNC]:: Time")
+
 	backupPath := configJson.S("backupPath").Data().(string)
 	remote := configJson.S("remote").Data().(string)
 
@@ -182,16 +176,22 @@ func runRsync () string {
 
 	}
 
-	if err := exec.Command(rsyncCmd, rsyncArgs...).Run(); err != nil {
-		return "rsync_error"
-	}
+	runCmd := exec.Command(rsyncCmd, rsyncArgs...)
+	runCmd.Stdout = os.Stdout
+	runCmd.Stderr = os.Stderr
+	runCmd.Run()
 
 	files, _ := ioutil.ReadDir(backupPath)
 	for _, file := range files {
-		spew.Printf("Sync File:: %s\n", file.Name())
 		os.Remove(backupPath + file.Name())
 	}
-	spew.Print("Sync Complete!\n")
 
 	return "ok"
+}
+
+// Helper
+// Time tracking
+func timeTrack(start time.Time, name string) {
+	elapsed := time.Since(start)
+	spew.Printf("%s took %s\n\n", name, elapsed)
 }
